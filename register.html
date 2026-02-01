@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Cadastrar</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="center">
+
+<div class="card">
+<h2>Criar conta</h2>
+<input id="user" placeholder="Usuário">
+<input id="pass" type="password" placeholder="Senha">
+<button onclick="register()">Cadastrar</button>
+</div>
+
+<script>
+function register(){
+  let users = JSON.parse(localStorage.getItem("users")) || {};
+  if(users[user.value]) return alert("Usuário já existe");
+
+  users[user.value] = {
+    senha: pass.value,
+    saldo: 0,
+    cargo: "usuario"
+  };
+
+  localStorage.setItem("users", JSON.stringify(users));
+  alert("Conta criada!");
+  location.href="login.html";
+}
+</script>
+
+</body>
+</html>

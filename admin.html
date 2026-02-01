@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin | SkyBlack</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .tabs{display:flex;gap:12px;flex-wrap:wrap}
+    .tabs button{width:auto;padding:10px 14px}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    .msg{padding:10px;border-radius:10px;background:rgba(255,255,255,.06);margin-bottom:10px}
+    .muted{opacity:.8}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    textarea{width:100%;min-height:120px;padding:12px;border-radius:10px;border:none;margin-top:10px}
+    select{width:100%;padding:12px;border-radius:10px;border:none;margin-top:10px}
+    .danger{background:#b00020}
+    .danger:hover{background:#8b0019}
+    .verified{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;background:rgba(0,255,136,.10);border:1px solid rgba(0,255,136,.22);color:#00ff88;font-size:12px;margin-left:8px}
+    @media(max-width:900px){.two{grid-template-columns:1fr}.row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="brand" onclick="location.href='index.html'" style="cursor:pointer">
+    <div class="logo"></div>
+    <h1>SkyBlack — Admin</h1>
+  </div>
+  <div class="actions">
+    <a class="icon" href="index.html" title="Home">⌂</a>
+    <button class="icon" style="width:auto" onclick="sair()" title="Sair">⎋</button>
+  </div>
+</header>
+
+<main>
+
+  <div class="box">
+    <h2>📊 Dashboard</h2>
+    <div id="resumo"></div>
+    <div id="grafico"></div>
+  </div>
+
+  <div class="box tabs">
+    <button onclick="abrir('sec-pedidos')">🧾 Pedidos</button>
+    <button onclick="abrir('sec-usuarios')">👥 Usuários</button>
+    <button onclick="abrir('sec-anuncios')">📦 Anúncios</button>
+    <button onclick="abrir('sec-dms')">💬 DMs</button>
+  </div>
+
+  <!-- PEDIDOS -->
+  <section id="sec-pedidos" style="display:none">
+    <div class="box">
+      <h2>🧾 Pedidos</h2>
+      <p class="muted">Aqui você confirma manualmente o pagamento.</p>
+      <select id="filtroPedido" onchange="renderPedidos()">
+        <option value="aguardando_pagamento">Aguardando pagamento</option>
+        <option value="pago">Pago</option>
+        <option value="cancelado">Cancelado</option>
+        <option value="todos">Todos</option>
+      </select>
+    </div>
+    <div class="grid" id="listaPedidos"></div>
+  </section>
+
+  <!-- USUÁRIOS -->
+  <section id="sec-usuarios" style="display:none">
+    <div class="box">
+      <h2>Usuários</h2>
+      <p>Total de logins: <span class="money" id="totalUsers">0</span></p>
+      <input id="buscaUser" placeholder="Buscar login..." oninput="renderUsuarios()">
+    </div>
+
+    <div class="two">
+      <div class="grid" id="listaUsuarios"></div>
+
+      <div class="box" id="detalhesUser" style="display:none">
+        <h2>Detalhes do usuário</h2>
+        <p><b>Login:</b> <span id="uLogin"></span></p>
+        <p><b>Senha:</b> <span class="money" id="uSenha"></span></p>
+        <p><b>Cargo:</b> <span id="uCargo"></span></p>
+        <p><b>Status:</b> <span id="uStatus"></span></p>
+        <p><b>Saldo:</b> <span class="money" id="uSaldo"></span></p>
+
+        <p><b>Compras:</b> <span id="uCompras"></span></p>
+        <p><b>Total gasto:</b> <span class="money" id="uGasto"></span></p>
+
+        <h3>Ações</h3>
+        <button onclick="setCargo('cliente')">Cliente</button>
+        <button onclick="setCargo('vendedor')">Vendedor</button>
+        <button onclick="setCargo('admin')">Admin</button>
+        <button onclick="toggleVerificado()">✔ Verificado</button>
+        <button onclick="desbanir()">Desbanir</button>
+        <button onclick="banir()">Banir</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ANÚNCIOS -->
+  <section id="sec-anuncios" style="display:none">
+    <div class="box">
+      <h2>Anúncios</h2>
+      <p class="muted">Você pode editar qualquer anúncio.</p>
+      <div class="row" style="margin-top:14px">
+        <button class="danger" onclick="limparAnuncios()">🧹 Limpar TODOS anúncios</button>
+        <button onclick="limparSomenteExemplos()">🧼 Remover anúncios de exemplo</button>
+      </div>
+    </div>
+
+    <div class="two">
+      <div class="grid" id="listaAnuncios"></div>
+
+      <div class="box" id="editorAnuncio" style="display:none">
+        <h2>Editar anúncio</h2>
+        <p class="muted">ID: <span id="aId"></span></p>
+
+        <div class="row">
+          <div><label>Nome</label><input id="aNome" /></div>
+          <div><label>Preço</label><input id="aPreco" type="number" /></div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Categoria</label>
+            <select id="aCat">
+              <option value="Jogos">Jogos</option>
+              <option value="Streamings">Streamings</option>
+              <option value="Trabalhos">Trabalhos</option>
+            </select>
+          </div>
+          <div><label>Stock</label><input id="aStock" type="number" /></div>
+        </div>
+
+        <div class="row">
+          <div><label>Vendedor (login)</label><input id="aVendedor" /></div>
+          <div>
+            <label>Status</label>
+            <select id="aStatus">
+              <option value="ativo">Ativo</option>
+              <option value="pausado">Pausado</option>
+            </select>
+          </div>
+        </div>
+
+        <label>Descrição</label>
+        <textarea id="aDesc"></textarea>
+
+        <div class="row" style="margin-top:14px">
+          <button onclick="salvarEdicao()">Salvar</button>
+          <button onclick="ativarTop24h()">🔥 TOP 24h</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="danger" onclick="excluirAtual()">Excluir</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DMs -->
+  <section id="sec-dms" style="display:none">
+    <div class="box">
+      <h2>💬 DMs do site</h2>
+      <input id="buscaDm" placeholder="Buscar por usuário..." oninput="renderDMs()">
+    </div>
+    <div class="box" id="listaDMs"></div>
+  </section>
+
+</main>
+
+<script>
+if (localStorage.getItem("cargo") !== "admin") {
+  alert("Acesso negado");
+  location.href = "index.html";
+}
+
+let users = JSON.parse(localStorage.getItem("users")) || {};
+let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+let pedidos = JSON.parse(localStorage.getItem("pedidos")) || [];
+let dmData = JSON.parse(localStorage.getItem("dms")) || [];
+
+let usuarioSelecionado = null;
+let anuncioSelecionadoIndex = null;
+
+for (let u in users) {
+  users[u].cargo ||= "usuario";
+  users[u].banido ||= false;
+  users[u].compras ||= 0;
+  users[u].gasto ||= 0;
+  users[u].saldo ||= 0;
+  users[u].verificado ||= false;
+}
+
+produtos.forEach(p => {
+  p.id ||= Date.now();
+  p.nome ||= "Sem nome";
+  p.preco = Number(p.preco || 0);
+  p.vendedor ||= "desconhecido";
+  p.categoria ||= "Jogos";
+  p.topUntil ||= 0;
+  p.pausado ??= false;
+  p.stock = Number(p.stock || 0);
+  p.descricao ||= "";
+  p.compras ||= 0;
+  p.ganhoVendedor ||= 0;
+  p.ganhoAdmin ||= 0;
+  p.ratingSum ||= 0;
+  p.ratingCount ||= 0;
+  p.comentarios ||= [];
+  p.fotos ||= [];
+});
+
+function isTopAtivo(p){ return Number(p.topUntil||0) > Date.now(); }
+function tempoRestante(ms){
+  const total = Math.max(0, Math.floor(ms/1000));
+  const h = Math.floor(total/3600);
+  const m = Math.floor((total%3600)/60);
+  const s = total%60;
+  const pad = (n)=>String(n).padStart(2,"0");
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+renderDashboard();
+
+function renderDashboard(){
+  let totalCompras = 0, totalAdmin = 0, totalVend = 0;
+  produtos.forEach(p => {
+    totalCompras += (p.compras || 0);
+    totalAdmin += (p.ganhoAdmin || 0);
+    totalVend += (p.ganhoVendedor || 0);
+  });
+
+  resumo.innerHTML = `
+    <p>Compras totais confirmadas: <span class="money">${totalCompras}</span></p>
+    <p>Seu lucro (taxas): <span class="money">R$ ${totalAdmin.toFixed(2)}</span></p>
+    <p>Lucro vendedores: <span class="money">R$ ${totalVend.toFixed(2)}</span></p>
+  `;
+
+  const max = Math.max(totalCompras||1, totalAdmin||1, totalVend||1);
+  const h1 = Math.round((totalCompras/max)*120);
+  const h2 = Math.round((totalAdmin/max)*120);
+  const h3 = Math.round((totalVend/max)*120);
+
+  grafico.innerHTML = `
+    <svg width="420" height="160" viewBox="0 0 420 160">
+      <rect x="60"  y="${140-h1}" width="70" height="${h1}" rx="10" fill="#7209b7"></rect>
+      <rect x="180" y="${140-h2}" width="70" height="${h2}" rx="10" fill="#00ff88"></rect>
+      <rect x="300" y="${140-h3}" width="70" height="${h3}" rx="10" fill="#4895ef"></rect>
+      <text x="55"  y="155" fill="#fff" font-size="12">Compras</text>
+      <text x="168" y="155" fill="#fff" font-size="12">Seu lucro</text>
+      <text x="286" y="155" fill="#fff" font-size="12">Vendedores</text>
+    </svg>
+  `;
+}
+
+function abrir(secaoId){
+  ["sec-pedidos","sec-usuarios","sec-anuncios","sec-dms"].forEach(id => {
+    document.getElementById(id).style.display = "none";
+  });
+  detalhesUser.style.display = "none";
+  editorAnuncio.style.display = "none";
+
+  document.getElementById(secaoId).style.display = "block";
+
+  if (secaoId === "sec-pedidos") renderPedidos();
+  if (secaoId === "sec-usuarios") renderUsuarios();
+  if (secaoId === "sec-anuncios") renderAnuncios();
+  if (secaoId === "sec-dms") renderDMs();
+}
+
+/* ===== PEDIDOS ===== */
+function renderPedidos(){
+  pedidos = JSON.parse(localStorage.getItem("pedidos")) || [];
+  users = JSON.parse(localStorage.getItem("users")) || {};
+  produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+
+  const filtro = (document.getElementById("filtroPedido").value || "aguardando_pagamento");
+  const lista = document.getElementById("listaPedidos");
+  lista.innerHTML = "";
+
+  const arr = pedidos
+    .filter(p => filtro === "todos" ? true : p.status === filtro)
+    .slice()
+    .sort((a,b) => (b.createdAt||0)-(a.createdAt||0));
+
+  if (arr.length === 0){
+    lista.innerHTML = `<p class="muted">Nenhum pedido.</p>`;
+    return;
+  }
+
+  arr.forEach(p => {
+    lista.innerHTML += `
+      <div class="card">
+        <b>Pedido #${p.id}</b> • <span class="muted">${new Date(p.createdAt).toLocaleString()}</span><br>
+        <div class="muted" style="margin-top:6px">
+          Produto: <b>${p.productName}</b><br>
+          Comprador: <b>${p.buyer}</b> • Vendedor: <b>${p.seller}</b><br>
+          Total: <span class="money">R$ ${Number(p.total).toFixed(2)}</span>
+          • Taxa: <span class="money">R$ ${Number(p.fee).toFixed(2)}</span>
+          • Líquido vendedor: <span class="money">R$ ${Number(p.sellerNet).toFixed(2)}</span><br>
+          Status: <b>${p.status}</b>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:12px">
+          ${p.status === "aguardando_pagamento" ? `
+            <button onclick="confirmarPagamento(${p.id})">Confirmar pagamento</button>
+            <button class="danger" onclick="cancelarPedido(${p.id})">Cancelar</button>
+          ` : `
+            <button onclick="location.href='produto.html?id=${p.productId}'">Abrir anúncio</button>
+          `}
+        </div>
+      </div>
+    `;
+  });
+}
+
+function confirmarPagamento(pedidoId){
+  pedidos = JSON.parse(localStorage.getItem("pedidos")) || [];
+  users = JSON.parse(localStorage.getItem("users")) || {};
+  produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+
+  const idx = pedidos.findIndex(x => x.id === pedidoId);
+  if (idx === -1) return alert("Pedido não encontrado.");
+
+  const ped = pedidos[idx];
+  if (ped.status !== "aguardando_pagamento") return alert("Pedido não está aguardando pagamento.");
+
+  const prodIdx = produtos.findIndex(x => Number(x.id) === Number(ped.productId));
+  if (prodIdx === -1) return alert("Anúncio não encontrado.");
+
+  const prod = produtos[prodIdx];
+  prod.stock = Number(prod.stock||0);
+  if (prod.stock <= 0) return alert("Sem stock para confirmar (estoque zerado).");
+
+  // aplica compra confirmada
+  prod.stock -= 1;
+  prod.compras = (prod.compras||0) + 1;
+  prod.ganhoAdmin = (prod.ganhoAdmin||0) + Number(ped.fee||0);
+  prod.ganhoVendedor = (prod.ganhoVendedor||0) + Number(ped.sellerNet||0);
+
+  // saldo vendedor
+  users[ped.seller] = users[ped.seller] || {senha:"", cargo:"usuario", banido:false, compras:0, gasto:0, saldo:0, verificado:false};
+  users[ped.seller].saldo = Number(users[ped.seller].saldo||0) + Number(ped.sellerNet||0);
+
+  // stats comprador
+  users[ped.buyer] = users[ped.buyer] || {senha:"", cargo:"usuario", banido:false, compras:0, gasto:0, saldo:0, verificado:false};
+  users[ped.buyer].compras = (users[ped.buyer].compras||0) + 1;
+  users[ped.buyer].gasto = Number(users[ped.buyer].gasto||0) + Number(ped.total||0);
+  if ((users[ped.buyer].cargo||"usuario") === "usuario") users[ped.buyer].cargo = "cliente";
+
+  // marca pedido como pago
+  ped.status = "pago";
+  ped.paidAt = Date.now();
+  pedidos[idx] = ped;
+  produtos[prodIdx] = prod;
+
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+  localStorage.setItem("users", JSON.stringify(users));
+  localStorage.setItem("pedidos", JSON.stringify(pedidos));
+
+  alert("Pagamento confirmado! Compra contabilizada.");
+  renderDashboard();
+  renderPedidos();
+}
+
+function cancelarPedido(pedidoId){
+  pedidos = JSON.parse(localStorage.getItem("pedidos")) || [];
+  const idx = pedidos.findIndex(x => x.id === pedidoId);
+  if (idx === -1) return;
+  if (!confirm("Cancelar este pedido?")) return;
+  if (pedidos[idx].status !== "aguardando_pagamento") return alert("Só dá pra cancelar quando está aguardando pagamento.");
+  pedidos[idx].status = "cancelado";
+  pedidos[idx].canceledAt = Date.now();
+  localStorage.setItem("pedidos", JSON.stringify(pedidos));
+  renderPedidos();
+}
+
+/* ===== USUÁRIOS ===== */
+function renderUsuarios(){
+  users = JSON.parse(localStorage.getItem("users")) || {};
+  for (let u in users){
+    users[u].cargo ||= "usuario";
+    users[u].banido ||= false;
+    users[u].compras ||= 0;
+    users[u].gasto ||= 0;
+    users[u].saldo ||= 0;
+    users[u].verificado ||= false;
+  }
+
+  const listaUsuarios = document.getElementById("listaUsuarios");
+  const filtro = (document.getElementById("buscaUser").value || "").toLowerCase();
+
+  listaUsuarios.innerHTML = "";
+  const nomes = Object.keys(users).filter(u => u.toLowerCase().includes(filtro));
+  totalUsers.innerText = nomes.length;
+
+  nomes.forEach(u => {
+    const ver = users[u].verificado ? `<span class="verified">✔ Verificado</span>` : "";
+    listaUsuarios.innerHTML += `
+      <div class="card" onclick="abrirUsuario('${u}')" style="cursor:pointer">
+        <b>${u}</b> ${ver}<br>
+        Cargo: <span class="money">${users[u].cargo}</span><br>
+        ${users[u].banido ? "🚫 Banido" : "🟢 Ativo"}
+      </div>
+    `;
+  });
+}
+
+function abrirUsuario(u){
+  usuarioSelecionado = u;
+  detalhesUser.style.display = "block";
+  uLogin.innerText = u;
+  uSenha.innerText = users[u].senha || "";
+  uCargo.innerText = users[u].cargo;
+  uStatus.innerText = users[u].banido ? "Banido" : "Ativo";
+  uSaldo.innerText = "R$ " + Number(users[u].saldo||0).toFixed(2);
+  uCompras.innerText = users[u].compras || 0;
+  uGasto.innerText = "R$ " + Number(users[u].gasto||0).toFixed(2);
+}
+
+function setCargo(c){
+  if (!usuarioSelecionado) return;
+  users[usuarioSelecionado].cargo = c;
+  localStorage.setItem("users", JSON.stringify(users));
+  renderUsuarios();
+  abrirUsuario(usuarioSelecionado);
+}
+
+function toggleVerificado(){
+  if (!usuarioSelecionado) return;
+  users[usuarioSelecionado].verificado = !users[usuarioSelecionado].verificado;
+  localStorage.setItem("users", JSON.stringify(users));
+  renderUsuarios();
+  abrirUsuario(usuarioSelecionado);
+}
+
+function banir(){
+  if (!usuarioSelecionado) return;
+  if (!confirm("Banir usuário?")) return;
+  users[usuarioSelecionado].banido = true;
+  localStorage.setItem("users", JSON.stringify(users));
+  renderUsuarios();
+  abrirUsuario(usuarioSelecionado);
+}
+
+function desbanir(){
+  if (!usuarioSelecionado) return;
+  users[usuarioSelecionado].banido = false;
+  localStorage.setItem("users", JSON.stringify(users));
+  renderUsuarios();
+  abrirUsuario(usuarioSelecionado);
+}
+
+/* ===== ANÚNCIOS ===== */
+function renderAnuncios(){
+  produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+  const lista = document.getElementById("listaAnuncios");
+  lista.innerHTML = "";
+
+  if (produtos.length === 0){
+    lista.innerHTML = "<p class='muted'>Nenhum anúncio.</p>";
+    return;
+  }
+
+  const ordenados = produtos
+    .map((p, idx) => ({p, idx}))
+    .sort((a,b) => (isTopAtivo(b.p) - isTopAtivo(a.p)));
+
+  ordenados.forEach(({p, idx}) => {
+    const topTxt = isTopAtivo(p) ? `🔥 TOP 24h (${tempoRestante(p.topUntil-Date.now())})` : "Normal";
+    lista.innerHTML += `
+      <div class="card" style="cursor:pointer" onclick="abrirEditor(${idx})">
+        <span class="${isTopAtivo(p) ? "money" : "muted"}">${topTxt}</span>
+        <div style="opacity:.85;margin-bottom:6px">${p.categoria}</div>
+        <h3>${p.nome}</h3>
+        <p class="money">R$ ${Number(p.preco).toFixed(2)}</p>
+        <p class="muted">Vendedor: ${p.vendedor}</p>
+        <p class="muted">Stock: ${Number(p.stock||0)} • Vendas: ${p.compras||0}</p>
+        <p>Status: ${p.pausado ? "⏸️ Pausado" : "🟢 Ativo"}</p>
+        <button onclick="event.stopPropagation(); location.href='produto.html?id=${p.id}'">Abrir</button>
+      </div>
+    `;
+  });
+}
+
+function abrirEditor(i){
+  anuncioSelecionadoIndex = i;
+  const p = produtos[i];
+  editorAnuncio.style.display = "block";
+
+  aId.innerText = p.id;
+  aNome.value = p.nome;
+  aPreco.value = Number(p.preco || 0);
+  aCat.value = p.categoria || "Jogos";
+  aStock.value = Number(p.stock || 0);
+  aVendedor.value = p.vendedor || "";
+  aStatus.value = p.pausado ? "pausado" : "ativo";
+  aDesc.value = p.descricao || "";
+}
+
+function salvarEdicao(){
+  if (anuncioSelecionadoIndex === null) return;
+
+  const p = produtos[anuncioSelecionadoIndex];
+  p.nome = (aNome.value || "").trim();
+  p.preco = Number(aPreco.value || 0);
+  p.categoria = (aCat.value || "Jogos").trim();
+  p.stock = Number(aStock.value || 0);
+  p.vendedor = (aVendedor.value || "").trim() || "desconhecido";
+  p.pausado = (aStatus.value === "pausado");
+  p.descricao = (aDesc.value || "").trim();
+
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+  alert("Salvo!");
+  renderAnuncios();
+  renderDashboard();
+}
+
+function ativarTop24h(){
+  if (anuncioSelecionadoIndex === null) return;
+  produtos[anuncioSelecionadoIndex].topUntil = Date.now() + 24*60*60*1000;
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+  alert("TOP 24h ativado!");
+  renderAnuncios();
+}
+
+function excluirAtual(){
+  if (anuncioSelecionadoIndex === null) return;
+  if (!confirm("Excluir este anúncio?")) return;
+  produtos.splice(anuncioSelecionadoIndex, 1);
+  anuncioSelecionadoIndex = null;
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+  editorAnuncio.style.display = "none";
+  renderAnuncios();
+  renderDashboard();
+}
+
+function limparAnuncios(){
+  if (!confirm("Tem certeza? Isso vai apagar TODOS os anúncios.")) return;
+  produtos = [];
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+  editorAnuncio.style.display = "none";
+  renderAnuncios();
+  renderDashboard();
+}
+
+function limparSomenteExemplos(){
+  produtos = produtos.filter(p => {
+    const semUso = (p.compras||0) === 0 && (p.ratingCount||0) === 0;
+    const eExemplo = (p.vendedor === "blackskye") && semUso;
+    return !eExemplo;
+  });
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+  editorAnuncio.style.display = "none";
+  alert("Exemplos removidos!");
+  renderAnuncios();
+  renderDashboard();
+}
+
+/* ===== DMs ===== */
+function renderDMs(){
+  dmData = JSON.parse(localStorage.getItem("dms")) || [];
+  const lista = document.getElementById("listaDMs");
+  const filtro = (document.getElementById("buscaDm").value || "").toLowerCase();
+
+  const msgs = dmData.filter(m =>
+    !filtro ||
+    (m.from && m.from.toLowerCase().includes(filtro)) ||
+    (m.to && m.to.toLowerCase().includes(filtro))
+  ).slice().reverse();
+
+  if (msgs.length === 0){
+    lista.innerHTML = "<p class='muted'>Nenhuma DM encontrada.</p>";
+    return;
+  }
+
+  lista.innerHTML = msgs.map(m => `
+    <div class="msg">
+      <b>${m.from}</b> → <b>${m.to}</b>
+      <span class="muted"> • ${m.date}</span><br>
+      <span class="muted">Produto ID: ${m.productId}</span>
+      <div style="margin-top:6px">${m.text}</div>
+    </div>
+  `).join("");
+}
+
+function sair(){
+  localStorage.removeItem("logado");
+  localStorage.removeItem("cargo");
+  location.href = "index.html";
+}
+
+// abre pedidos por padrão
+abrir("sec-pedidos");
+</script>
+
+</body>
+</html>

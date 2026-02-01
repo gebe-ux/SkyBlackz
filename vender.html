@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Anunciar - SkyBlack</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header>
+    <h1>SkyBlack</h1>
+    <a href="index.html" class="btn">Voltar</a>
+  </header>
+
+  <main class="produto-page">
+    <h2>Anunciar produto</h2>
+
+    <label>Nome do produto</label>
+    <input id="nome" placeholder="Ex: Conta Premium, Skin, Item digital">
+
+    <label>Preço do produto (R$)</label>
+    <input id="preco" type="number" placeholder="Mínimo R$ 2">
+
+    <div class="info">
+      Comissão SkyBlack: <span id="comissao">R$ 0,00</span><br>
+      Total pago pelo cliente: <span id="total">R$ 0,00</span>
+    </div>
+
+    <button class="buy" onclick="anunciar()">Publicar anúncio</button>
+
+    <p id="msg"></p>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

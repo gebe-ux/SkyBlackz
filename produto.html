@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Anúncio | SkyBlack</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .produto-wrap{display:grid;grid-template-columns:1.2fr .8fr;gap:30px;align-items:start}
+    .galeria img{width:100%;border-radius:14px;display:block}
+    .thumbs{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+    .thumbs img{width:90px;height:60px;object-fit:cover;border-radius:10px;opacity:.85;cursor:pointer}
+    .thumbs img:hover{opacity:1}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);margin-right:8px}
+    .muted{opacity:.8}
+    textarea{width:100%;min-height:90px;padding:12px;border-radius:10px;border:none;margin-top:10px}
+    select{width:100%;padding:12px;border-radius:10px;border:none;margin-top:10px}
+    .msg{padding:10px;border-radius:10px;background:rgba(255,255,255,.06);margin-bottom:10px}
+
+    .verified{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:3px 8px;border-radius:999px;
+      background: rgba(0,255,136,.10);
+      border: 1px solid rgba(0,255,136,.22);
+      color: #00ff88;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+
+    /* modal pix */
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:999}
+    .modal{width:min(560px,92vw);border-radius:18px;padding:18px;background:rgba(10,0,18,.94);border:1px solid rgba(255,255,255,.10);box-shadow:0 20px 60px rgba(0,0,0,.55)}
+    .modal h2{margin:0 0 10px}
+    .line{height:1px;background:rgba(255,255,255,.08);margin:12px 0}
+    .copyrow{display:flex;gap:10px;align-items:center}
+    .copyrow input{flex:1}
+    .btnrow{display:flex;gap:10px;margin-top:12px}
+    .btnrow button{width:100%}
+    .ghost{background:rgba(255,255,255,.06)}
+    @media(max-width:900px){.produto-wrap{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="brand" onclick="location.href='index.html'" style="cursor:pointer">
+    <div class="logo"></div>
+    <h1>SkyBlack</h1>
+  </div>
+  <div class="actions">
+    <a class="icon" href="index.html" title="Home">⌂</a>
+  </div>
+</header>
+
+<main>
+  <div id="conteudo"></div>
+</main>
+
+<div class="overlay" id="pixOverlay">
+  <div class="modal">
+    <h2>Pagamento via Pix</h2>
+    <p class="muted" id="pixInfo"></p>
+    <div class="line"></div>
+
+    <p class="muted" style="margin:0 0 6px">Chave Pix</p>
+    <div class="copyrow">
+      <input id="pixKey" readonly>
+      <button class="ghost" onclick="copyPix()">Copiar</button>
+    </div>
+
+    <p class="muted" style="margin:12px 0 6px">Valor exato</p>
+    <div class="copyrow">
+      <input id="pixAmount" readonly>
+      <button class="ghost" onclick="copyAmount()">Copiar</button>
+    </div>
+
+    <p class="muted" style="margin-top:12px">
+      Após pagar, clique em <b>“Já paguei”</b>. O pedido fica <b>pendente</b> até o admin confirmar.
+    </p>
+
+    <div class="btnrow">
+      <button onclick="jaPaguei()">Já paguei</button>
+      <button class="ghost" onclick="fecharPix()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PIX_KEY = "5d676d06-d161-4709-9c3d-5e9fdfb97f81";
+
+const params = new URLSearchParams(location.search);
+const id = Number(params.get("id"));
+
+function ensureAdmin() {
+  let users = JSON.parse(localStorage.getItem("users")) || {};
+  users["blackskye"] = users["blackskye"] || {};
+  users["blackskye"].senha = "glauber2010";
+  users["blackskye"].cargo = "admin";
+  users["blackskye"].banido = false;
+  users["blackskye"].compras ||= 0;
+  users["blackskye"].gasto ||= 0;
+  users["blackskye"].saldo ||= 0;
+  users["blackskye"].verificado = true;
+  localStorage.setItem("users", JSON.stringify(users));
+  return users;
+}
+
+let users = ensureAdmin();
+let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+let dms = JSON.parse(localStorage.getItem("dms")) || [];
+let pedidos = JSON.parse(localStorage.getItem("pedidos")) || [];
+
+let logado = localStorage.getItem("logado");
+
+const pIndex = produtos.findIndex(x => Number(x.id) === id);
+if (pIndex === -1){
+  conteudo.innerHTML = `<div class="box"><h2>Anúncio não encontrado</h2><a href="index.html">Voltar</a></div>`;
+  throw new Error("Produto não encontrado");
+}
+
+const p = produtos[pIndex];
+p.categoria ||= "Jogos";
+p.fotos ||= [];
+p.comentarios ||= [];
+p.ratingSum ||= 0;
+p.ratingCount ||= 0;
+p.compras ||= 0;
+p.stock = Number(p.stock || 0);
+p.topUntil ||= 0;
+p.pausado ??= false;
+p.ganhoAdmin ||= 0;
+p.ganhoVendedor ||= 0;
+
+function salvarProdutos(){
+  produtos[pIndex] = p;
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+}
+
+function estrelas(avg){
+  const full = Math.floor(avg);
+  let s = "";
+  for (let i=0;i<5;i++) s += (i<full ? "★" : "☆");
+  return s;
+}
+
+function isTopAtivo(prod){
+  return Number(prod.topUntil || 0) > Date.now();
+}
+
+function tempoRestante(ms){
+  const total = Math.max(0, Math.floor(ms/1000));
+  const h = Math.floor(total/3600);
+  const m = Math.floor((total%3600)/60);
+  const s = total%60;
+  const pad = (n)=>String(n).padStart(2,"0");
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+function taxar(preco, isTop){
+  const taxaPor2 = isTop ? 1 : 0.5;
+  const blocos = Math.floor(preco / 2);
+  return blocos * taxaPor2;
+}
+
+function render(){
+  users = JSON.parse(localStorage.getItem("users")) || {};
+
+  const avg = p.ratingCount ? (p.ratingSum / p.ratingCount) : 0;
+  const stockTxt = p.stock > 0 ? `Stock: <b>${p.stock}</b>` : `<b style="color:#ff6b6b">Sem stock</b>`;
+  const topAtivo = isTopAtivo(p);
+  const topTxt = topAtivo ? `<span class="money">🔥 TOP 24h</span>` : `<span class="pill">Normal</span>`;
+  const statusTxt = p.pausado ? `<span class="pill">⏸️ Pausado</span>` : `<span class="pill">🟢 Ativo</span>`;
+  const topRestante = topAtivo ? `<span class="pill">Restante: <b>${tempoRestante(p.topUntil - Date.now())}</b></span>` : "";
+
+  const vend = p.vendedor || "desconhecido";
+  const ver = users[vend]?.verificado ? `<span class="verified">✔ Verificado</span>` : "";
+
+  const fotos = (p.fotos.length ? p.fotos : ["https://picsum.photos/seed/skyblack/900/520"]);
+
+  conteudo.innerHTML = `
+    <div class="produto-wrap">
+      <div>
+        <div class="galeria">
+          <img id="fotoPrincipal" src="${fotos[0]}" alt="foto">
+          <div class="thumbs">
+            ${fotos.map((f, i) => `<img src="${f}" onclick="trocarFoto(${i})">`).join("")}
+          </div>
+        </div>
+
+        <div class="box" style="margin-top:20px">
+          <div class="pill">${p.categoria}</div>
+          <h2 style="margin-top:10px">${p.nome}</h2>
+
+          <div style="margin:10px 0">
+            ${topTxt} ${statusTxt} ${topRestante}
+            <span class="pill">Vendas: <b>${p.compras}</b></span>
+            <span class="pill">${stockTxt}</span>
+          </div>
+
+          <p class="money" style="font-size:22px">R$ ${Number(p.preco).toFixed(2)}</p>
+          <p>${estrelas(avg)} <span class="muted">(${p.ratingCount})</span></p>
+
+          <h3>Descrição</h3>
+          <p class="muted">${(p.descricao || "Sem descrição.").replaceAll("<","&lt;")}</p>
+
+          <button onclick="comprar()" ${p.pausado || p.stock<=0 ? "disabled style='opacity:.5;cursor:not-allowed'" : ""}>
+            Comprar
+          </button>
+
+          <p class="muted" style="margin-top:10px">
+            Taxa: ${topAtivo ? "<b class='money'>R$1,00 a cada R$2</b> (TOP)" : "<b class='money'>R$0,50 a cada R$2</b>"}
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <div class="box">
+          <h2>Vendedor</h2>
+          <p><b>${vend}</b> ${ver}</p>
+          <p class="muted">Após pagar, aguarde a confirmação do admin.</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+render();
+
+setInterval(() => { if (isTopAtivo(p)) render(); }, 1000);
+
+window.trocarFoto = function(i){
+  const fotos = (p.fotos.length ? p.fotos : ["https://picsum.photos/seed/skyblack/900/520"]);
+  const el = document.getElementById("fotoPrincipal");
+  if (el) el.src = fotos[i];
+}
+
+// ===== COMPRA COM PIX (PENDENTE) =====
+let ultimoPedidoId = null;
+
+window.comprar = function(){
+  if (!logado){
+    alert("Você precisa entrar para comprar.");
+    location.href = "login.html";
+    return;
+  }
+
+  users = ensureAdmin();
+  if (!users[logado]) { alert("Conta inválida. Faça login de novo."); location.href="login.html"; return; }
+  if (users[logado].banido) { alert("Conta banida."); return; }
+  if (p.pausado) return alert("Este anúncio está pausado.");
+  if (p.stock <= 0) return alert("Sem stock no momento.");
+
+  const topAtivo = isTopAtivo(p);
+  const taxa = taxar(Number(p.preco), topAtivo);
+  const total = Number(p.preco);
+  const liquido = total - taxa;
+
+  const pedido = {
+    id: Date.now(),
+    status: "aguardando_pagamento",
+    createdAt: Date.now(),
+    productId: p.id,
+    productName: p.nome,
+    seller: p.vendedor,
+    buyer: logado,
+    category: p.categoria,
+    total: total,
+    fee: taxa,
+    sellerNet: liquido,
+    pixKey: PIX_KEY
+  };
+
+  pedidos.push(pedido);
+  localStorage.setItem("pedidos", JSON.stringify(pedidos));
+
+  ultimoPedidoId = pedido.id;
+
+  document.getElementById("pixInfo").innerText = `Pedido #${pedido.id} • Pague exatamente R$ ${total.toFixed(2)} via Pix.`;
+  document.getElementById("pixKey").value = PIX_KEY;
+  document.getElementById("pixAmount").value = `R$ ${total.toFixed(2)}`;
+  document.getElementById("pixOverlay").style.display = "flex";
+};
+
+window.copyPix = async function(){
+  try{ await navigator.clipboard.writeText(PIX_KEY); alert("Chave Pix copiada!"); }
+  catch{ alert("Não deu pra copiar. Selecione e copie manualmente."); }
+}
+window.copyAmount = async function(){
+  const v = document.getElementById("pixAmount").value;
+  try{ await navigator.clipboard.writeText(v); alert("Valor copiado!"); }
+  catch{ alert("Não deu pra copiar. Selecione e copie manualmente."); }
+}
+window.fecharPix = function(){
+  document.getElementById("pixOverlay").style.display = "none";
+}
+window.jaPaguei = function(){
+  if (!ultimoPedidoId) return;
+  alert("Pedido enviado para verificação! Aguarde confirmação do admin.");
+  fecharPix();
+}
+</script>
+
+</body>
+</html>

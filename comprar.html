@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Pagamento</title>
+</head>
+<body>
+
+<h2>Pagamento via Pix</h2>
+<p>Chave Pix: <b>SUA-CHAVE-PIX-AQUI</b></p>
+<button onclick="confirmar()">Já paguei</button>
+
+<script src="db.js"></script>
+<script src="app.js"></script>
+<script>
+let produtoId = localStorage.getItem("produtoCompra");
+let produto = DB.produtos.find(p => p.id == produtoId);
+
+function confirmar() {
+  let venda = {
+    id: Date.now(),
+    produtoId: produto.id,
+    vendedorId: produto.vendedorId,
+    valor: produto.total,
+    comissao: produto.comissao
+  };
+
+  DB.vendas.push(venda);
+
+  let vendedor = DB.usuarios.find(u => u.id === produto.vendedorId);
+  vendedor.saldo += produto.preco;
+
+  criarNotificacao("Venda realizada: " + produto.nome);
+  criarNotificacao("Você vendeu: " + produto.nome, vendedor.id);
+
+  salvarDB();
+  alert("Pagamento confirmado (simulado)");
+  window.location = "index.html";
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Painel | SkyBlack</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .wrap{max-width:1100px;margin:0 auto}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    textarea{width:100%;min-height:110px;padding:12px;border-radius:10px;border:none;margin-top:10px}
+    select{width:100%;padding:12px;border-radius:10px;border:none;margin-top:10px}
+    .help{opacity:.8;font-size:13px;margin-top:8px}
+    .mini{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .mini img{width:90px;height:60px;object-fit:cover;border-radius:10px;opacity:.9}
+    .tabs2{display:flex;gap:12px;flex-wrap:wrap}
+    .tabs2 button{width:auto}
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:999}
+    .modal{width:min(520px,92vw);border-radius:18px;padding:18px;background:rgba(10,0,18,.94);border:1px solid rgba(255,255,255,.10);box-shadow:0 20px 60px rgba(0,0,0,.55)}
+    .modal h2{margin:0 0 10px}
+    .btnrow{display:flex;gap:10px;margin-top:12px}
+    .btnrow button{width:100%}
+    .ghost{background:rgba(255,255,255,.06)}
+    @media(max-width:900px){.row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="brand" onclick="location.href='index.html'" style="cursor:pointer">
+    <div class="logo"></div>
+    <h1>SkyBlack — Painel</h1>
+  </div>
+  <div class="actions">
+    <a class="icon" href="index.html" title="Home">⌂</a>
+    <button class="icon" style="width:auto" onclick="sair()" title="Sair">⎋</button>
+  </div>
+</header>
+
+<main class="wrap" id="app"></main>
+
+<div class="overlay" id="saqueOverlay">
+  <div class="modal">
+    <h2>Saque solicitado</h2>
+    <p class="muted" style="margin:0">
+      Seu saque foi solicitado. O dinheiro pode cair em <b>3 a 76 horas</b>.
+    </p>
+    <div class="btnrow">
+      <button onclick="fecharSaque()">Ok</button>
+      <button class="ghost" onclick="fecharSaque()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DISCORD_URL = "https://discord.gg/DrpYZhCabu";
+const PRECO_MINIMO_ANUNCIO = 2; // R$ 2,00
+
+function ensureAdminAndUser(){
+  let users = JSON.parse(localStorage.getItem("users")) || {};
+  users["blackskye"] = users["blackskye"] || {};
+  users["blackskye"].senha = "glauber2010";
+  users["blackskye"].cargo = "admin";
+  users["blackskye"].banido = false;
+  users["blackskye"].saldo ||= 0;
+  users["blackskye"].verificado = true;
+  localStorage.setItem("users", JSON.stringify(users));
+  return users;
+}
+
+let logado = localStorage.getItem("logado");
+let cargo = localStorage.getItem("cargo");
+let users = ensureAdminAndUser();
+let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+let saques = JSON.parse(localStorage.getItem("saques")) || [];
+
+if (!logado){
+  alert("Faça login.");
+  location.href = "login.html";
+}
+if (!users[logado]){
+  alert("Conta inválida. Faça login de novo.");
+  location.href="login.html";
+}
+if (users[logado].banido){
+  alert("Conta banida.");
+  location.href="index.html";
+}
+
+/* Se não for vendedor/admin, mostra tela de verificação no discord */
+if (cargo !== "vendedor" && cargo !== "admin"){
+  document.getElementById("app").innerHTML = `
+    <div class="box">
+      <h2>Verificação necessária</h2>
+      <p class="muted" style="opacity:.85">
+        Para anunciar, você precisa ser verificado como <b>vendedor</b> no Discord.
+      </p>
+      <button onclick="window.open('${DISCORD_URL}','_blank')">Verificar no Discord</button>
+    </div>
+  `;
+  throw new Error("Sem permissão");
+}
+
+users[logado].saldo ||= 0;
+
+function fileToDataURL(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function showUI(){
+  document.getElementById("app").innerHTML = `
+    <div class="box tabs2">
+      <button onclick="showTab('tab-anunciar')">📦 Anunciar</button>
+      <button onclick="showTab('tab-meus')">🧾 Meus anúncios</button>
+      <button onclick="showTab('tab-saldo')">💰 Saldo/Saque</button>
+      <button style="width:auto" onclick="window.open('${DISCORD_URL}','_blank')">💬 Discord</button>
+    </div>
+
+    <section id="tab-anunciar" style="display:none">
+      <div class="box">
+        <h2>📦 Anunciar produto</h2>
+        <p class="help">Preço mínimo para anunciar: <b class="money">R$ ${PRECO_MINIMO_ANUNCIO.toFixed(2)}</b></p>
+
+        <div class="row">
+          <div>
+            <label>Nome</label>
+            <input id="nome" placeholder="Ex: Conta Valorant com skins raras" />
+          </div>
+          <div>
+            <label>Preço</label>
+            <input id="preco" type="number" placeholder="Ex: 20" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Categoria</label>
+            <select id="categoria">
+              <option value="">Selecione...</option>
+              <option value="Jogos">Jogos</option>
+              <option value="Streamings">Streamings</option>
+              <option value="Trabalhos">Trabalhos</option>
+            </select>
+          </div>
+          <div>
+            <label>Stock</label>
+            <input id="stock" type="number" placeholder="Ex: 5" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Fotos (da sua galeria)</label>
+            <input id="files" type="file" accept="image/*" multiple />
+            <div class="mini" id="preview"></div>
+          </div>
+          <div>
+            <label>Descrição</label>
+            <textarea id="descricao" placeholder="Descreva o produto..."></textarea>
+          </div>
+        </div>
+
+        <button onclick="anunciar()">Publicar anúncio</button>
+      </div>
+    </section>
+
+    <section id="tab-meus" style="display:none">
+      <div class="box">
+        <h2>🧾 Seus anúncios</h2>
+        <div class="grid" id="meus"></div>
+      </div>
+    </section>
+
+    <section id="tab-saldo" style="display:none">
+      <div class="box">
+        <h2>💰 Seu saldo</h2>
+        <p>Disponível para sacar: <span class="money" id="saldoTxt">R$ 0.00</span></p>
+
+        <label>Valor para sacar</label>
+        <input id="valorSaque" type="number" placeholder="Ex: 50" />
+
+        <button onclick="solicitarSaque()">Solicitar saque</button>
+        <p class="help">Ao solicitar saque, o prazo estimado é de <b>3 a 76 horas</b>.</p>
+      </div>
+
+      <div class="box">
+        <h2>📌 Seus saques</h2>
+        <div id="listaSaques" class="grid"></div>
+      </div>
+    </section>
+  `;
+
+  const filesEl = document.getElementById("files");
+  const preview = document.getElementById("preview");
+  if (filesEl){
+    filesEl.addEventListener("change", () => {
+      preview.innerHTML = "";
+      const arr = Array.from(filesEl.files || []);
+      arr.slice(0, 6).forEach(file => {
+        const url = URL.createObjectURL(file);
+        preview.innerHTML += `<img src="${url}">`;
+      });
+    });
+  }
+}
+showUI();
+
+function showTab(id){
+  ["tab-anunciar","tab-meus","tab-saldo"].forEach(x => document.getElementById(x).style.display="none");
+  document.getElementById(id).style.display = "block";
+  if (id === "tab-meus") renderMeus();
+  if (id === "tab-saldo") renderSaldo();
+}
+
+async function anunciar(){
+  produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+
+  const n = (document.getElementById("nome").value || "").trim();
+  const pr = Number(document.getElementById("preco").value);
+  const st = Number(document.getElementById("stock").value);
+  const cat = (document.getElementById("categoria").value || "").trim();
+  const desc = (document.getElementById("descricao").value || "").trim();
+  const filesEl = document.getElementById("files");
+  const arrFiles = Array.from(filesEl?.files || []);
+
+  if (!n) return alert("Preencha o nome.");
+  if (!Number.isFinite(pr) || pr < PRECO_MINIMO_ANUNCIO) return alert(`Preço mínimo para anunciar é R$ ${PRECO_MINIMO_ANUNCIO.toFixed(2)}.`);
+  if (!cat) return alert("Selecione uma categoria.");
+  if (!Number.isFinite(st) || st < 0) return alert("Coloque um stock válido.");
+  if (!desc) return alert("Coloque uma descrição.");
+  if (arrFiles.length === 0) return alert("Selecione pelo menos 1 foto.");
+
+  const fotos = await Promise.all(arrFiles.slice(0, 6).map(fileToDataURL));
+
+  produtos.push({
+    id: Date.now(),
+    nome: n,
+    preco: pr,
+    vendedor: logado,
+    categoria: cat,
+    topUntil: 0,
+    pausado: false,
+    stock: st,
+    descricao: desc,
+    fotos,
+    compras: 0,
+    ganhoVendedor: 0,
+    ganhoAdmin: 0,
+    ratingSum: 0,
+    ratingCount: 0,
+    comentarios: []
+  });
+
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+  alert("Anúncio publicado!");
+  location.reload();
+}
+
+function renderMeus(){
+  produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+  const meus = document.getElementById("meus");
+  meus.innerHTML = "";
+
+  const meusProdutos = produtos.filter(p => p.vendedor === logado);
+  if (meusProdutos.length === 0){
+    meus.innerHTML = "<p style='opacity:.8'>Você ainda não anunciou nada.</p>";
+    return;
+  }
+
+  meusProdutos.forEach(p => {
+    meus.innerHTML += `
+      <div class="card">
+        <div style="opacity:.85;margin-bottom:6px">${p.categoria || "Jogos"}</div>
+        <h3>${p.nome}</h3>
+        <p class="money">R$ ${Number(p.preco).toFixed(2)}</p>
+        <p style="opacity:.8">Stock: ${Number(p.stock||0)} • Vendas: ${p.compras||0}</p>
+        <p>Status: ${p.pausado ? "⏸️ Pausado" : "🟢 Ativo"}</p>
+
+        <button onclick="location.href='produto.html?id=${p.id}'">Abrir</button>
+        <button onclick="togglePause(${p.id})">${p.pausado ? "Ativar" : "Pausar"}</button>
+        <button onclick="excluir(${p.id})">Excluir</button>
+      </div>
+    `;
+  });
+}
+
+function togglePause(id){
+  produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+  produtos = produtos.map(x => {
+    if (x.id === id && x.vendedor === logado) x.pausado = !x.pausado;
+    return x;
+  });
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+  renderMeus();
+}
+
+function excluir(id){
+  if (!confirm("Excluir seu anúncio?")) return;
+  produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+  produtos = produtos.filter(x => !(x.id === id && x.vendedor === logado));
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+  renderMeus();
+}
+
+function renderSaldo(){
+  users = JSON.parse(localStorage.getItem("users")) || {};
+  users[logado].saldo ||= 0;
+  document.getElementById("saldoTxt").innerText = "R$ " + Number(users[logado].saldo||0).toFixed(2);
+
+  saques = JSON.parse(localStorage.getItem("saques")) || [];
+  const meus = saques.filter(s => s.seller === logado).slice().reverse();
+
+  const listaSaques = document.getElementById("listaSaques");
+  listaSaques.innerHTML = "";
+  if (meus.length === 0){
+    listaSaques.innerHTML = `<p style="opacity:.8">Nenhum saque solicitado.</p>`;
+    return;
+  }
+
+  meus.forEach(s => {
+    listaSaques.innerHTML += `
+      <div class="card">
+        <b>Saque #${s.id}</b><br>
+        <span class="muted">${new Date(s.createdAt).toLocaleString()}</span><br><br>
+        Valor: <span class="money">R$ ${Number(s.amount).toFixed(2)}</span><br>
+        Status: <b>${s.status}</b>
+      </div>
+    `;
+  });
+}
+
+function solicitarSaque(){
+  users = JSON.parse(localStorage.getItem("users")) || {};
+  users[logado].saldo ||= 0;
+
+  const v = Number(document.getElementById("valorSaque").value || 0);
+  if (!v || v <= 0) return alert("Digite um valor válido.");
+  if (v > Number(users[logado].saldo)) return alert("Você não pode sacar mais do que tem.");
+
+  users[logado].saldo = Number(users[logado].saldo) - v;
+  localStorage.setItem("users", JSON.stringify(users));
+
+  saques = JSON.parse(localStorage.getItem("saques")) || [];
+  saques.push({
+    id: Date.now(),
+    seller: logado,
+    amount: v,
+    status: "pendente",
+    createdAt: Date.now()
+  });
+  localStorage.setItem("saques", JSON.stringify(saques));
+
+  document.getElementById("saqueOverlay").style.display = "flex";
+  renderSaldo();
+}
+
+function fecharSaque(){
+  document.getElementById("saqueOverlay").style.display = "none";
+}
+
+function sair(){
+  localStorage.removeItem("logado");
+  localStorage.removeItem("cargo");
+  location.href = "index.html";
+}
+
+showTab("tab-meus");
+</script>
+
+</body>
+</html>

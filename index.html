@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>SkyBlack</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .chips{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
+    .chip{
+      padding:10px 14px;border-radius:999px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      cursor:pointer; user-select:none;
+    }
+    .chip.active{
+      background: rgba(122,20,255,.35);
+      border-color: rgba(255,255,255,.14);
+    }
+    .tag{opacity:.85;margin-bottom:6px}
+    .verified{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:3px 8px;border-radius:999px;
+      background: rgba(0,255,136,.10);
+      border: 1px solid rgba(0,255,136,.22);
+      color: #00ff88;
+      font-size: 12px;
+      margin-left: 8px;
+      white-space: nowrap;
+    }
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.60);display:none;align-items:center;justify-content:center;z-index:999}
+    .modal{
+      width:min(720px,92vw);
+      border-radius:18px;
+      padding:18px;
+      background: rgba(10,0,18,.94);
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    }
+    .modal h2{margin:0 0 10px}
+    .modal p, .modal li{color: rgba(255,255,255,.82)}
+    .modal ul{margin:10px 0 0 20px}
+    .line{height:1px;background:rgba(255,255,255,.08);margin:12px 0}
+    .btnrow{display:flex;gap:10px;margin-top:14px}
+    .btnrow button{width:100%}
+    .ghost{background:rgba(255,255,255,.06)}
+  </style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="brand" onclick="location.href='index.html'" style="cursor:pointer">
+    <div class="logo"></div>
+    <h1>SkyBlack</h1>
+  </div>
+
+  <div class="searchbar">
+    <div class="search">
+      <span style="opacity:.7">🔎</span>
+      <input id="q" placeholder="Anúncio, usuário ou categoria" oninput="render()">
+      <span class="kbd">P</span>
+    </div>
+  </div>
+
+  <div class="actions">
+    <!-- Discord no topo -->
+    <a class="icon" href="#" title="Entrar no Discord" onclick="abrirDiscord(event)">💬</a>
+
+    <div class="drop" id="dropCats">
+      <button onclick="toggleDrop(event)" style="width:auto">Categorias ▾</button>
+      <div class="menu" id="catMenu"></div>
+    </div>
+
+    <a class="primary" id="btnAnunciar" href="painel.html" style="display:none">Anunciar</a>
+    <a class="icon" href="admin.html" id="btnAdmin" style="display:none" title="Admin">⚙️</a>
+    <a class="icon" href="login.html" id="btnLogin" style="display:none" title="Entrar">👤</a>
+    <button class="icon" id="btnSair" style="display:none;width:auto" title="Sair" onclick="sair()">⎋</button>
+  </div>
+</header>
+
+<main>
+  <h2>Em destaque</h2>
+
+  <!-- Virar vendedor -->
+  <div class="box" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <div>
+      <b>Quer virar vendedor?</b>
+      <div class="muted" style="opacity:.85">Verificação é feita pelo nosso Discord.</div>
+    </div>
+    <button style="width:auto" onclick="window.open(DISCORD_URL,'_blank')">Verificar no Discord</button>
+  </div>
+
+  <div class="chips" id="chips"></div>
+  <div class="grid" id="lista"></div>
+</main>
+
+<!-- TERMOS (aparece só pra quem não tá logado e ainda não aceitou) -->
+<div class="overlay" id="termsOverlay">
+  <div class="modal">
+    <h2>Termos de uso — SkyBlack</h2>
+    <p class="muted" style="opacity:.85;margin:0">
+      Para continuar, você precisa aceitar os termos abaixo.
+    </p>
+    <div class="line"></div>
+    <ul>
+      <li>Ao usar o SkyBlack, você concorda em seguir as regras da plataforma.</li>
+      <li><b>Não trabalhamos com reembolso sem provas.</b> Podemos solicitar evidências (prints, mensagens, etc.).</li>
+      <li><b>Fraude / reembolso mal-intencionado</b> pode resultar em banimento e <b>medidas legais</b>, além de comunicação com banco/autoridades quando aplicável.</li>
+      <li>Compras exigem cadastro/login. Navegação pode ser feita sem conta.</li>
+    </ul>
+    <div class="btnrow">
+      <button onclick="aceitarTermos()">Aceitar e continuar</button>
+      <button class="ghost" onclick="recusarTermos()">Recusar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DISCORD_URL = "https://discord.gg/DrpYZhCabu";
+
+let users = JSON.parse(localStorage.getItem("users")) || {};
+let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+let logado = localStorage.getItem("logado");
+let cargo = localStorage.getItem("cargo");
+
+const CATEGORIAS = ["Todos", "Jogos", "Streamings", "Trabalhos"];
+let categoriaAtual = "Todos";
+
+function ensureAdmin() {
+  users["blackskye"] = users["blackskye"] || {};
+  users["blackskye"].senha = "glauber2010";
+  users["blackskye"].cargo = "admin";
+  users["blackskye"].banido = false;
+  users["blackskye"].compras ||= 0;
+  users["blackskye"].gasto ||= 0;
+  users["blackskye"].saldo ||= 0;
+  users["blackskye"].verificado = true;
+  localStorage.setItem("users", JSON.stringify(users));
+}
+ensureAdmin();
+
+function abrirDiscord(e){
+  e.preventDefault();
+  window.open(DISCORD_URL, "_blank");
+}
+
+function setupActions(){
+  const btnLogin = document.getElementById("btnLogin");
+  const btnSair = document.getElementById("btnSair");
+  const btnAnunciar = document.getElementById("btnAnunciar");
+  const btnAdmin = document.getElementById("btnAdmin");
+
+  if (logado){
+    btnSair.style.display = "inline-flex";
+    btnLogin.style.display = "none";
+    if (cargo === "vendedor" || cargo === "admin") btnAnunciar.style.display = "inline-flex";
+    if (cargo === "admin") btnAdmin.style.display = "inline-flex";
+  } else {
+    btnLogin.style.display = "inline-flex";
+    btnSair.style.display = "none";
+    btnAnunciar.style.display = "none";
+    btnAdmin.style.display = "none";
+  }
+}
+setupActions();
+
+// Termos
+(function showTermsIfNeeded(){
+  if (logado) return;
+  const ok = localStorage.getItem("termsAccepted") === "1";
+  if (!ok) document.getElementById("termsOverlay").style.display = "flex";
+})();
+function aceitarTermos(){
+  localStorage.setItem("termsAccepted","1");
+  document.getElementById("termsOverlay").style.display = "none";
+}
+function recusarTermos(){
+  alert("Você precisa aceitar os termos para usar o site.");
+  location.href = "about:blank";
+}
+
+// categorias dropdown
+function renderCatMenu(){
+  const catMenu = document.getElementById("catMenu");
+  catMenu.innerHTML = CATEGORIAS.map(c => `<a href="#" onclick="setCat('${c}');return false;">${c}</a>`).join("");
+}
+renderCatMenu();
+
+function toggleDrop(e){
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById("dropCats").classList.toggle("open");
+}
+window.addEventListener("click", () => {
+  document.getElementById("dropCats").classList.remove("open");
+});
+
+function renderChips(){
+  const el = document.getElementById("chips");
+  el.innerHTML = "";
+  CATEGORIAS.forEach(c => {
+    el.innerHTML += `<div class="chip ${c===categoriaAtual?'active':''}" onclick="setCat('${c}')">${c}</div>`;
+  });
+}
+function setCat(c){
+  categoriaAtual = c;
+  renderChips();
+  render();
+}
+renderChips();
+
+function estrelas(avg){
+  const full = Math.floor(avg);
+  let s = "";
+  for (let i=0;i<5;i++) s += (i<full ? "★" : "☆");
+  return s;
+}
+function isTopAtivo(prod){
+  return Number(prod.topUntil || 0) > Date.now();
+}
+
+function render(){
+  users = JSON.parse(localStorage.getItem("users")) || {};
+  produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+
+  const lista = document.getElementById("lista");
+  const busca = (document.getElementById("q").value || "").toLowerCase();
+  lista.innerHTML = "";
+
+  produtos
+    .filter(p => !p.pausado)
+    .filter(p => (categoriaAtual === "Todos") ? true : ((p.categoria||"Jogos") === categoriaAtual))
+    .filter(p => {
+      const nome = (p.nome||"").toLowerCase();
+      const vend = (p.vendedor||"").toLowerCase();
+      const cat  = (p.categoria||"").toLowerCase();
+      return nome.includes(busca) || vend.includes(busca) || cat.includes(busca);
+    })
+    .sort((a,b) => (isTopAtivo(b) - isTopAtivo(a)))
+    .forEach(p => {
+      p.categoria ||= "Jogos";
+      p.ratingSum ||= 0;
+      p.ratingCount ||= 0;
+      p.compras ||= 0;
+      p.stock = Number(p.stock||0);
+
+      const avg = p.ratingCount ? (p.ratingSum/p.ratingCount) : 0;
+      const stockTxt = p.stock > 0 ? `Stock: ${p.stock}` : "Sem stock";
+      const vend = p.vendedor || "desconhecido";
+      const ver = users[vend]?.verificado ? `<span class="verified">✔ Verificado</span>` : "";
+      const topBadge = isTopAtivo(p) ? `<span class="money">🔥 TOP 24h</span>` : "";
+
+      lista.innerHTML += `
+        <div class="card" style="cursor:pointer" onclick="location.href='produto.html?id=${p.id}'">
+          ${topBadge}
+          <div class="tag">${p.categoria} • <span style="opacity:.85">@${vend}</span> ${ver}</div>
+          <h3>${p.nome}</h3>
+
+          <p class="money">R$ ${Number(p.preco).toFixed(2)}</p>
+
+          <p>${estrelas(avg)} <span style="opacity:.8">(${p.ratingCount})</span></p>
+          <p style="opacity:.8">Vendas: ${p.compras} • ${stockTxt}</p>
+
+          <button onclick="event.stopPropagation(); location.href='produto.html?id=${p.id}'">Ver anúncio</button>
+        </div>
+      `;
+    });
+}
+render();
+
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    document.getElementById("q").focus();
+  }
+});
+
+function sair(){
+  localStorage.removeItem("logado");
+  localStorage.removeItem("cargo");
+  location.reload();
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Entrar | SkyBlack</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+
+<div class="auth-card">
+  <h2>Entrar</h2>
+
+  <input id="user" placeholder="Usuário">
+  <input id="pass" type="password" placeholder="Senha">
+
+  <button onclick="login()">Entrar</button>
+
+  <p class="link" onclick="location.href='register.html'">Criar conta</p>
+</div>
+
+<script>
+function ensureAdmin() {
+  // garante que o admin SEMPRE existe e SEMPRE não está banido
+  let users = JSON.parse(localStorage.getItem("users")) || {};
+  users["blackskye"] = users["blackskye"] || {};
+  users["blackskye"].senha = "glauber2010";
+  users["blackskye"].cargo = "admin";
+  users["blackskye"].banido = false;
+  users["blackskye"].compras = users["blackskye"].compras || 0;
+  users["blackskye"].gasto = users["blackskye"].gasto || 0;
+  localStorage.setItem("users", JSON.stringify(users));
+  return users;
+}
+
+function login(){
+  const u = user.value.trim();
+  const p = pass.value.trim();
+
+  // sempre repara admin
+  const users = ensureAdmin();
+
+  // ADMIN FIXO
+  if (u === "blackskye" && p === "glauber2010") {
+    localStorage.setItem("logado", "blackskye");
+    localStorage.setItem("cargo", "admin");
+    location.href = "admin.html";
+    return;
+  }
+
+  // usuário normal
+  if (!users[u]) {
+    alert("Usuário não existe");
+    return;
+  }
+
+  if (users[u].banido) {
+    alert("Esse usuário está banido.");
+    return;
+  }
+
+  if (users[u].senha === p) {
+    localStorage.setItem("logado", u);
+    localStorage.setItem("cargo", users[u].cargo || "usuario");
+    location.href = "index.html";
+  } else {
+    alert("Usuário ou senha incorretos");
+  }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>SkyBlack</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topo">
+  <h1>SkyBlack</h1>
+  <nav id="menu"></nav>
+</header>
+
+<main>
+<h2>Produtos</h2>
+<div class="grid" id="lista"></div>
+</main>
+
+<script>
+let users = JSON.parse(localStorage.getItem("users")) || {};
+let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+let logado = localStorage.getItem("logado");
+let menu = document.getElementById("menu");
+
+if(logado){
+  menu.innerHTML = `
+    <span>Olá, ${logado}</span>
+    ${users[logado]?.cargo === "vendedor" ? `<a href="painel.html">Painel</a>` : ""}
+    <a href="#" onclick="sair()">Sair</a>
+  `;
+}else{
+  menu.innerHTML = `
+    <a href="login.html">Entrar</a>
+    <a href="register.html">Cadastrar</a>
+  `;
+}
+
+produtos.forEach(p=>{
+  lista.innerHTML += `
+    <div class="card">
+      <h3>${p.nome}</h3>
+      <p class="money">R$ ${p.preco.toFixed(2)}</p>
+      <button onclick="comprar()">Comprar</button>
+    </div>
+  `;
+});
+
+function comprar(){
+  if(!logado){
+    alert("Faça login para comprar");
+    location.href = "login.html";
+  }else{
+    alert("Compra simulada com sucesso!");
+  }
+}
+
+function sair(){
+  localStorage.removeItem("logado");
+  location.reload();
+}
+</script>
+
+</body>
+</html>
